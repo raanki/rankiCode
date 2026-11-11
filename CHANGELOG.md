@@ -5,6 +5,11 @@ Chaque changement de l'application incrémente la version dans `package.json` (a
 - **Correctif** → `0.2.x`
 - **Nouvelle fonctionnalité** → `0.x.0`
 
+## 0.2.1
+
+- Correctif : la version s'affiche bien en bas de la barre latérale (elle était écrite au mauvais endroit).
+- Logs : erreurs de statut de la machine, nombre de conversations chargées au démarrage, suppressions de conversations.
+
 ## 0.2.0
 
 - Défilement automatique du chat qui se coupe quand on remonte pour relire, et reprend en bas.

@@ -60,6 +60,7 @@ async function refreshStatus() {
   } catch (err) {
     $('dot').className = 'dot off';
     $('statusText').textContent = cleanError(err);
+    window.api.log('ERREUR', `Statut de la machine : ${cleanError(err)}`);
   }
 }
 
@@ -82,8 +83,7 @@ $('powerBtn').onclick = async () => {
     const res = await (podRunning ? window.api.stop : window.api.start)(machineId());
     if (res && res.relocated) {
       // Le pod a été recréé ailleurs : nouvel identifiant et nouvelles adresses.
-      $('version').textContent = `RankiCode v${await window.api.version()}`;
-  config = await window.api.getConfig();
+      config = await window.api.getConfig();
       $('termFrame').removeAttribute('src');
     }
   } catch (err) { alert(cleanError(err)); }
@@ -95,6 +95,7 @@ window.api.onProgress(text => { $('statusText').textContent = text; });
 
 async function renderConvs() {
   const list = await window.api.listConvs();
+  if (!renderConvs.logged) { renderConvs.logged = true; window.api.log('INFO', `${list.length} conversation(s) chargée(s)`); }
   $('convs').innerHTML = '';
   for (const c of list) {
     const li = document.createElement('li');
@@ -106,6 +107,7 @@ async function renderConvs() {
       e.stopPropagation();
       if (!confirm(`Supprimer « ${c.title} » ?`)) return;
       await window.api.deleteConv(c.id);
+      window.api.log('INFO', `Conversation supprimée : ${c.title}`);
       if (conv && conv.id === c.id) newConv();
       renderConvs();
     };
@@ -711,6 +713,7 @@ document.querySelector('[data-view="termView"]').addEventListener('dblclick', ()
 // ---- Démarrage ------------------------------------------------------------
 
 (async () => {
+  $('version').textContent = `RankiCode v${await window.api.version()}`;
   config = await window.api.getConfig();
   renderMachines();
   $('agent').checked = !!config.agent;
