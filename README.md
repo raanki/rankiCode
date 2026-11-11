@@ -2,6 +2,12 @@
 
 Application de bureau (Electron) pour discuter avec un modèle Ollama hébergé sur un pod RunPod — ou en local — avec une interface minimaliste façon Claude.
 
+![Chat](docs/chat.png)
+
+| Monitoring du pod | Terminal du pod |
+|---|---|
+| ![Monitoring](docs/monitoring.png) | ![Terminal](docs/terminal.png) |
+
 ## Fonctionnalités
 
 - **Chat** avec réponses en streaming et réflexion du modèle visible en direct.
