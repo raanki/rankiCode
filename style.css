@@ -149,6 +149,20 @@ header .spacer { flex: 1; }
 .msg details[open] summary::before { content: "▾ "; }
 .msg details[open] { border-left: 2px solid var(--border); padding-left: 12px; }
 .msg.error > div { color: var(--off); }
+/* ---- Actions sous les messages ---- */
+.msg-actions { display: flex; gap: 2px; margin-top: 4px; opacity: 0; transition: opacity .15s; }
+.msg:hover .msg-actions { opacity: 1; }
+.msg.user .msg-actions { justify-content: flex-end; }
+.msg-actions button { display: flex; padding: 5px; border-radius: 6px; color: var(--faint); }
+.msg-actions button:hover { background: var(--hover); color: var(--text); }
+.msg-actions .i { width: 15px; height: 15px; }
+.edit-box { max-width: 740px; margin: 0 auto 22px; padding: 0 28px; }
+.edit-box textarea {
+  width: 100%; resize: vertical; background: var(--panel); color: var(--text); border: 1px solid #44443f;
+  border-radius: 12px; padding: 10px 14px; font: inherit; font-size: 15px; outline: none;
+}
+.edit-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
 /* ---- Markdown des réponses ---- */
 .msg .md { white-space: normal; }
 .md > :first-child { margin-top: 0; }

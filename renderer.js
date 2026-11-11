@@ -139,7 +139,7 @@ function renderMarkdown(el, text) {
   });
 }
 
-function addMessage(role, content, thinking, attachments) {
+function addMessage(role, content, thinking, attachments, index) {
   const wrap = document.createElement('div');
   wrap.className = `msg ${role}`;
   if (attachments && attachments.length) wrap.appendChild(chipList(attachments));
@@ -153,8 +153,87 @@ function addMessage(role, content, thinking, attachments) {
   if (role === 'assistant' && content) renderMarkdown(body, content);
   else body.textContent = content;
   wrap.appendChild(body);
+  if (index != null) wrap.appendChild(messageActions(role, content, index, wrap));
   place(wrap);
   return wrap;
+}
+
+// ---- Actions sous les messages : copier, modifier, régénérer ---------------
+
+const ICONS = {
+  copy: '<path d="M8 8h11a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1z"/><path d="M16 8V5a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  retry: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'
+};
+const icon = name => `<svg class="i" viewBox="0 0 24 24">${ICONS[name]}</svg>`;
+
+function messageActions(role, content, index, wrap) {
+  const bar = document.createElement('div');
+  bar.className = 'msg-actions';
+  const add = (name, title, onclick) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.title = title;
+    b.innerHTML = icon(name);
+    b.onclick = onclick;
+    bar.appendChild(b);
+    return b;
+  };
+  const copyBtn = add('copy', 'Copier', () => {
+    navigator.clipboard.writeText(content);
+    copyBtn.innerHTML = icon('check');
+    setTimeout(() => { copyBtn.innerHTML = icon('copy'); }, 1500);
+  });
+  if (role === 'user') add('edit', 'Modifier', () => editMessage(index, wrap));
+  if (role === 'assistant') add('retry', 'Régénérer la réponse', () => regenerate(index));
+  return bar;
+}
+
+// Remplace la bulle par un champ d'édition ; l'envoi repart de ce message.
+function editMessage(index, wrap) {
+  if (streaming) return;
+  const msg = conv.messages[index];
+  const editor = document.createElement('div');
+  editor.className = 'edit-box';
+  editor.innerHTML = `<textarea rows="3"></textarea>
+    <div class="edit-actions"><button type="button" class="ghost">Annuler</button><button type="button" class="primary">Envoyer</button></div>`;
+  const area = editor.querySelector('textarea');
+  area.value = msg.content;
+  wrap.replaceWith(editor);
+  area.focus();
+  area.style.height = area.scrollHeight + 'px';
+  const [cancel, ok] = editor.querySelectorAll('button');
+  cancel.onclick = () => renderMessages();
+  const submit = async () => {
+    const text = area.value.trim();
+    if (!text && !msg.attachments) return;
+    const c = conv;
+    c.messages = c.messages.slice(0, index);
+    c.messages.push({ ...msg, content: text });
+    c.updated = Date.now();
+    await window.api.saveConv(c);
+    renderMessages();
+    await respond(c);
+  };
+  ok.onclick = submit;
+  area.onkeydown = e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+    if (e.key === 'Escape') renderMessages();
+  };
+}
+
+// Supprime la réponse (et les commandes qui ont suivi) puis la redemande au modèle.
+async function regenerate(index) {
+  if (streaming) return;
+  const c = conv;
+  let userIndex = index;
+  while (userIndex >= 0 && c.messages[userIndex].role !== 'user') userIndex--;
+  if (userIndex < 0) return;
+  c.messages = c.messages.slice(0, userIndex + 1);
+  await window.api.saveConv(c);
+  renderMessages();
+  await respond(c);
 }
 
 // Carte d'une commande : en attente de validation, ou avec sa sortie.
@@ -224,7 +303,7 @@ function renderMessages() {
   for (let i = 0; i < msgs.length; i++) {
     const m = msgs[i];
     if (m.role === 'tool') continue;
-    if (m.content || m.thinking || m.attachments) addMessage(m.role, m.content, m.thinking, m.attachments);
+    if (m.content || m.thinking || m.attachments) addMessage(m.role, m.content, m.thinking, m.attachments, i);
     for (const [j, call] of (m.tool_calls || []).entries()) {
       const result = msgs[i + 1 + j];
       const done = result && result.role === 'tool';
@@ -403,6 +482,12 @@ async function send() {
   await window.api.saveConv(c);
   renderConvs();
   addMessage('user', text, '', attachments);
+  await respond(c);
+}
+
+// Fait répondre le modèle à la conversation c (après un envoi, une modification ou une régénération).
+async function respond(c) {
+  liveConvId = c.id;
   setSending(true);
   stopRequested = false;
   const agent = $('agent').checked;
@@ -467,7 +552,7 @@ async function send() {
     liveConvId = null;
     liveCard = null;
     setSending(false);
-    if (stopRequested && conv === c) renderMessages();
+    if (conv === c) renderMessages();
     renderConvs();
   }
 }
