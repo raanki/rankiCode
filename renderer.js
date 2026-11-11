@@ -112,6 +112,27 @@ function newConv() {
 }
 $('newConv').onclick = newConv;
 
+// Markdown des réponses → HTML nettoyé, avec un bouton Copier sur les blocs de code.
+marked.setOptions({ gfm: true, breaks: true });
+
+function renderMarkdown(el, text) {
+  el.classList.add('md');
+  el.innerHTML = DOMPurify.sanitize(marked.parse(text));
+  el.querySelectorAll('a').forEach(a => { a.target = '_blank'; a.rel = 'noreferrer'; });
+  el.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.type = 'button';
+    btn.textContent = 'Copier';
+    btn.onclick = () => {
+      navigator.clipboard.writeText(pre.querySelector('code')?.innerText ?? pre.innerText);
+      btn.textContent = 'Copié';
+      setTimeout(() => { btn.textContent = 'Copier'; }, 1500);
+    };
+    pre.appendChild(btn);
+  });
+}
+
 function addMessage(role, content, thinking, attachments) {
   const wrap = document.createElement('div');
   wrap.className = `msg ${role}`;
@@ -123,7 +144,8 @@ function addMessage(role, content, thinking, attachments) {
     wrap.appendChild(d);
   }
   const body = document.createElement('div');
-  body.textContent = content;
+  if (role === 'assistant' && content) renderMarkdown(body, content);
+  else body.textContent = content;
   wrap.appendChild(body);
   $('messages').appendChild(wrap);
   return wrap;
@@ -239,7 +261,7 @@ window.api.onChunk(({ content, thinking }) => {
   }
   if (s.content) {
     if (s.think.open && allThinking) { s.think.open = false; s.think.querySelector('summary').textContent = 'Réflexion'; }
-    s.el.lastChild.textContent = s.content;
+    renderMarkdown(s.el.lastChild, s.content);
   }
   s.thinkingFull = allThinking;
   $('messages').scrollTop = $('messages').scrollHeight;
@@ -337,13 +359,14 @@ async function send() {
   }
   conv.messages.push({ role: 'user', content: text, ...(attachments.length && { attachments }) });
   addMessage('user', text, '', attachments);
-  $('send').disabled = true;
+  setSending(true);
+  stopRequested = false;
   const agent = $('agent').checked;
 
   // Boucle agent : tant que le modèle demande des commandes, on les fait valider
   // puis on lui renvoie leur sortie.
   try {
-    while (true) {
+    while (!stopRequested) {
       startStreaming();
       const toolCalls = await window.api.chat({
         machineId: machineId(),
@@ -359,6 +382,7 @@ async function send() {
       if (!toolCalls.length) break;
 
       for (const call of toolCalls) {
+        if (stopRequested) break;
         const card = addTool(describeCall(call));
         let output, image;
         if ($('auto').checked || await askApproval(card)) {
@@ -380,18 +404,44 @@ async function send() {
       }
     }
   } catch (err) {
-    streaming.el.className = 'msg assistant error';
-    streaming.el.lastChild.textContent = err.message.replace(/^Error invoking.*?: /, '');
+    if (stopRequested) {
+      // Arrêt demandé : on garde ce qui a déjà été écrit.
+      if (streaming.content || streaming.thinkingFull) {
+        conv.messages.push({ role: 'assistant', content: streaming.content + '\n\n[interrompu]', thinking: streaming.thinkingFull || '' });
+      }
+    } else {
+      streaming.el.className = 'msg assistant error';
+      streaming.el.lastChild.textContent = cleanError(err);
+    }
+  } finally {
+    conv.updated = Date.now();
+    await window.api.saveConv(conv).catch(() => {});
+    streaming = null;
+    setSending(false);
+    if (stopRequested) renderMessages();
+    renderConvs();
   }
-  conv.updated = Date.now();
-  await window.api.saveConv(conv);
-  streaming = null;
-  $('send').disabled = false;
-  renderMessages();
-  renderConvs();
 }
 
-$('composer').onsubmit = e => { e.preventDefault(); send(); };
+// Pendant une réponse, le bouton d'envoi devient un bouton Stop.
+let stopRequested = false;
+const ICON_SEND = '<svg class="i" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></svg>';
+const ICON_STOP = '<svg class="i" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>';
+
+function setSending(on) {
+  $('send').classList.toggle('stop', on);
+  $('send').innerHTML = on ? ICON_STOP : ICON_SEND;
+  $('send').title = on ? 'Arrêter la réponse' : 'Envoyer (Entrée)';
+}
+
+function stop() {
+  stopRequested = true;
+  window.api.abort();
+  // Débloque aussi une validation de commande en attente.
+  document.querySelectorAll('.tool .actions button:last-child').forEach(b => b.click());
+}
+
+$('composer').onsubmit = e => { e.preventDefault(); streaming ? stop() : send(); };
 $('input').onkeydown = e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 };

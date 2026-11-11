@@ -262,6 +262,9 @@ ipcMain.handle('exec', (_, command) => new Promise(resolve => {
     });
 }));
 
+let chatAbort = null;
+ipcMain.handle('chat:abort', () => { if (chatAbort) chatAbort.abort(); });
+
 // Réponse en streaming : chaque morceau est renvoyé à la fenêtre.
 // En mode agent, renvoie les appels d'outils demandés par le modèle.
 ipcMain.handle('chat', async (e, { machineId, messages, agent }) => {
@@ -271,7 +274,9 @@ ipcMain.handle('chat', async (e, { machineId, messages, agent }) => {
     const ps = await (await fetch(`${m.url}/api/ps`, { signal: AbortSignal.timeout(4000) })).json();
     if (!ps.models.some(x => x.name === m.model)) e.sender.send('chat:status', 'Chargement du modèle dans le GPU (30 à 60 s)…');
   } catch {}
+  chatAbort = new AbortController();
   const res = await fetch(`${m.url}/api/chat`, {
+    signal: chatAbort.signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: m.model, messages, stream: true, ...(agent && { tools: AGENT_TOOLS }) })

@@ -149,6 +149,38 @@ header .spacer { flex: 1; }
 .msg details[open] summary::before { content: "▾ "; }
 .msg details[open] { border-left: 2px solid var(--border); padding-left: 12px; }
 .msg.error > div { color: var(--off); }
+/* ---- Markdown des réponses ---- */
+.msg .md { white-space: normal; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p, .md ul, .md ol, .md pre, .md table, .md blockquote { margin: 0 0 12px; }
+.md h1, .md h2, .md h3, .md h4 { margin: 20px 0 8px; line-height: 1.3; font-weight: 600; }
+.md h1 { font-size: 22px; } .md h2 { font-size: 19px; } .md h3 { font-size: 16.5px; } .md h4 { font-size: 15px; }
+.md ul, .md ol { padding-left: 22px; }
+.md li + li { margin-top: 4px; }
+.md strong { font-weight: 650; color: #fff; }
+.md a { color: var(--accent); }
+.md hr { border: 0; border-top: 1px solid var(--border); margin: 18px 0; }
+.md blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--muted); }
+.md code {
+  font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px;
+}
+.md pre {
+  position: relative; background: var(--side); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; overflow-x: auto;
+}
+.md pre code { background: none; border: 0; padding: 0; font-size: 12.5px; line-height: 1.55; white-space: pre; }
+.md pre .copy {
+  position: absolute; top: 6px; right: 6px; font-size: 11.5px; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px;
+  opacity: 0; transition: opacity .15s;
+}
+.md pre:hover .copy { opacity: 1; }
+.md table { border-collapse: collapse; display: block; overflow-x: auto; font-size: 14px; }
+.md th, .md td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+.md th { background: var(--panel); font-weight: 600; }
+.md tr:nth-child(even) td { background: rgba(255,255,255,.02); }
 .msg details.live[open] summary { color: var(--accent); animation: pulse 1.4s infinite; }
 .think-text { white-space: pre-wrap; max-height: 260px; overflow-y: auto; }
 .typing { display: inline-flex; gap: 4px; padding: 6px 0; }
@@ -200,6 +232,7 @@ header .spacer { flex: 1; }
   display: flex; align-items: center; justify-content: center;
 }
 .send:hover:not(:disabled) { filter: brightness(1.1); }
+.send.stop { background: var(--text); color: var(--bg); }
 .hint { text-align: center; color: var(--faint); font-size: 11.5px; margin-top: 8px; }
 
 /* ---- Pièces jointes ---- */

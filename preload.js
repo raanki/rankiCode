@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('api', {
   saveConv: conv => ipcRenderer.invoke('conv:save', conv),
   deleteConv: id => ipcRenderer.invoke('conv:delete', id),
   chat: payload => ipcRenderer.invoke('chat', payload),
+  abort: () => ipcRenderer.invoke('chat:abort'),
   exec: command => ipcRenderer.invoke('exec', command),
   browser: (name, args) => ipcRenderer.invoke('browser', { name, args }),
   sysinfo: () => ipcRenderer.invoke('sysinfo'),
