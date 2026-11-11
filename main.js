@@ -19,7 +19,7 @@ const POD_SPEC = {
   cloudType: 'SECURE',
   disk: 60,
   ports: ['11434/http', '7681/http'],
-  env: { OLLAMA_HOST: '0.0.0.0', OLLAMA_CONTEXT_LENGTH: '16384' },
+  env: { OLLAMA_HOST: '0.0.0.0', OLLAMA_CONTEXT_LENGTH: '16384', OLLAMA_FLASH_ATTENTION: '1', OLLAMA_KV_CACHE_TYPE: 'q8_0' },
   entrypoint: ['/bin/sh', '-c'],
   cmd: ['(apt-get update -qq && apt-get install -y -qq curl ca-certificates htop nvtop >/dev/null 2>&1; ' +
     'curl -sL -o /usr/local/bin/ttyd https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 && ' +
