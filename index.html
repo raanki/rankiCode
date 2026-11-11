@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; frame-src https://*.proxy.runpod.net http://localhost:*; style-src 'self' 'unsafe-inline'">
+  <title>RankiCode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside>
+    <div class="brand drag">
+      <svg class="i logo" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/></svg>
+      RankiCode
+    </div>
+    <button id="newConv" class="row-btn">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      Nouvelle conversation
+    </button>
+    <div class="section">Récents</div>
+    <ul id="convs"></ul>
+    <button id="openSettings" class="row-btn">
+      <svg class="i" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+      Réglages
+    </button>
+  </aside>
+
+  <main>
+    <header class="drag">
+      <div class="pill">
+        <svg class="i" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/></svg>
+        <select id="machine"></select>
+        <svg class="i chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <div class="status">
+        <span id="dot" class="dot"></span>
+        <span id="statusText">…</span>
+        <span id="cost"></span>
+      </div>
+      <div class="spacer"></div>
+      <nav class="tabs">
+        <button data-view="chatView" class="active">
+          <svg class="i" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chat
+        </button>
+        <button data-view="monitorView">
+          <svg class="i" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Monitoring
+        </button>
+        <button data-view="termView">
+          <svg class="i" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6M12 19h8"/></svg>Terminal
+        </button>
+      </nav>
+      <button id="powerBtn" class="icon-btn" title="Allumer / Éteindre">
+        <svg class="i" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
+      </button>
+    </header>
+
+    <div id="monitorView" class="view" hidden>
+      <div class="monitor">
+        <div id="monitorError" class="monitor-error"></div>
+        <div class="cards">
+          <div class="card"><div class="label">GPU</div><div id="mGpuName" class="value small">—</div></div>
+          <div class="card"><div class="label">Allumé depuis</div><div id="mUptime" class="value">—</div></div>
+          <div class="card"><div class="label">Coût de la session</div><div id="mCost" class="value">—</div></div>
+          <div class="card"><div class="label">Modèle en mémoire</div><div id="mModel" class="value small">—</div></div>
+        </div>
+        <div class="bars">
+          <div class="bar"><span>Utilisation GPU</span><div class="track"><div id="bGpu"></div></div><b id="vGpu">—</b></div>
+          <div class="bar"><span>Mémoire GPU (VRAM)</span><div class="track"><div id="bVram"></div></div><b id="vVram">—</b></div>
+          <div class="bar"><span>CPU</span><div class="track"><div id="bCpu"></div></div><b id="vCpu">—</b></div>
+          <div class="bar"><span>RAM</span><div class="track"><div id="bRam"></div></div><b id="vRam">—</b></div>
+        </div>
+        <div class="monitor-foot">Actualisé toutes les 5 secondes</div>
+      </div>
+    </div>
+
+    <div id="termView" class="view" hidden>
+      <div id="termPlaceholder" class="term-placeholder"></div>
+      <iframe id="termFrame" hidden></iframe>
+    </div>
+
+    <div id="chatView" class="view">
+    <section id="messages"></section>
+
+    <form id="composer">
+      <div class="box">
+        <div id="attachments" class="chips"></div>
+        <textarea id="input" rows="1" placeholder="Écrivez à RankiCode…"></textarea>
+        <div class="box-bar">
+          <button id="attach" type="button" class="icon-btn" title="Joindre des fichiers (texte, Excel, images)">
+            <svg class="i" viewBox="0 0 24 24"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+          </button>
+          <label class="switch" title="Le modèle peut exécuter des commandes PowerShell, validées une par une">
+            <input id="agent" type="checkbox">
+            <svg class="i" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6M12 19h8"/></svg>
+            Agent
+          </label>
+          <label class="switch auto" title="Exécute les commandes sans demander de validation">
+            <input id="auto" type="checkbox">
+            <svg class="i" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Auto
+          </label>
+          <div class="spacer"></div>
+          <button id="send" class="send" title="Envoyer (Entrée)">
+            <svg class="i" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="hint">Entrée pour envoyer · Maj+Entrée pour aller à la ligne</div>
+    </form>
+    </div>
+  </main>
+
+  <div id="dropzone">Déposez vos fichiers ici</div>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h2>Réglages</h2>
+      <label>Clé API RunPod
+        <input id="apiKey" type="password" autocomplete="off">
+      </label>
+      <label>Navigateur piloté par l'agent
+        <select id="browserKind">
+          <option value="firefox">Firefox</option>
+          <option value="chrome">Chrome</option>
+        </select>
+      </label>
+      <label>Machines (JSON)
+        <textarea id="machinesJson" rows="14"></textarea>
+      </label>
+      <div class="actions-row">
+        <button value="cancel" class="ghost">Annuler</button>
+        <button id="saveSettings" value="save" class="primary">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
