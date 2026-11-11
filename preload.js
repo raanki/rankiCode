@@ -5,6 +5,7 @@ window.addEventListener('error', e => ipcRenderer.send('log', 'ERREUR-FENETRE', 
 window.addEventListener('unhandledrejection', e => ipcRenderer.send('log', 'ERREUR-FENETRE', String(e.reason && e.reason.stack || e.reason)));
 
 contextBridge.exposeInMainWorld('api', {
+  version: () => ipcRenderer.invoke('app:version'),
   openLogs: () => ipcRenderer.invoke('logs:open'),
   log: (level, text) => ipcRenderer.send('log', level, text),
   getConfig: () => ipcRenderer.invoke('config:get'),

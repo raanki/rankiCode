@@ -12,6 +12,14 @@ const place = el => { if (rendering || !liveConvId || (conv && conv.id === liveC
 
 const machineId = () => $('machine').value;
 
+// Défilement auto : on suit le bas tant que l'utilisateur ne remonte pas pour relire.
+let stickToBottom = true;
+const followBottom = () => { if (stickToBottom) $('messages').scrollTop = $('messages').scrollHeight; };
+$('messages').addEventListener('scroll', () => {
+  const m = $('messages');
+  stickToBottom = m.scrollHeight - m.scrollTop - m.clientHeight < 60;
+});
+
 const AGENT_PROMPT = `Tu es un agent qui agit sur l'ordinateur Windows de l'utilisateur avec l'outil run_command (PowerShell).
 Procède par petites étapes : une commande, lis sa sortie, puis décide de la suite.
 Le dossier de départ est le dossier personnel de l'utilisateur. Préfère les commandes non destructives et explique brièvement ce que tu fais.
@@ -74,7 +82,8 @@ $('powerBtn').onclick = async () => {
     const res = await (podRunning ? window.api.stop : window.api.start)(machineId());
     if (res && res.relocated) {
       // Le pod a été recréé ailleurs : nouvel identifiant et nouvelles adresses.
-      config = await window.api.getConfig();
+      $('version').textContent = `RankiCode v${await window.api.version()}`;
+  config = await window.api.getConfig();
       $('termFrame').removeAttribute('src');
     }
   } catch (err) { alert(cleanError(err)); }
@@ -263,7 +272,7 @@ function askApproval(wrap) {
     ok.onclick = () => { actions.remove(); resolve(true); };
     no.onclick = () => { actions.remove(); resolve(false); };
     wrap.querySelector('.tool').appendChild(actions);
-    $('messages').scrollTop = $('messages').scrollHeight;
+    followBottom();
     ok.focus();
   });
 }
@@ -317,6 +326,7 @@ function renderMessages() {
     if (!streaming.pushed) $('messages').appendChild(streaming.el);
     if (liveCard) $('messages').appendChild(liveCard);
   }
+  stickToBottom = true;
   $('messages').scrollTop = $('messages').scrollHeight;
 }
 
@@ -381,7 +391,7 @@ window.api.onChunk(({ content, thinking }) => {
     stop();
     window.api.log('ALERTE', 'Réponse coupée : le modèle tournait en boucle');
   }
-  $('messages').scrollTop = $('messages').scrollHeight;
+  followBottom();
 });
 
 // ---- Pièces jointes -------------------------------------------------------
@@ -482,6 +492,8 @@ async function send() {
   await window.api.saveConv(c);
   renderConvs();
   addMessage('user', text, '', attachments);
+  stickToBottom = true;
+  followBottom();
   await respond(c);
 }
 

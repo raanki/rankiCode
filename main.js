@@ -143,6 +143,7 @@ ipcMain.handle('machine:metrics', async (_, id) => {
 });
 
 ipcMain.handle('logs:open', () => shell.openPath(LOG));
+ipcMain.handle('app:version', () => app.getVersion());
 ipcMain.handle('config:get', () => getConfig());
 ipcMain.handle('config:save', (_, cfg) => writeJson(CONFIG, cfg));
 ipcMain.handle('machine:status', (_, id) => machineStatus(id));
@@ -340,7 +341,7 @@ app.whenReady().then(() => {
   });
   win.removeMenu();
   win.loadFile('index.html');
-  log('INFO', `Démarrage, données dans ${DATA}`);
+  log('INFO', `Démarrage v${app.getVersion()}, données dans ${DATA}`);
   win.webContents.on('console-message', (_e, level, message, line, source) => {
     if (level >= 2) log(level === 3 ? 'ERREUR-FENETRE' : 'ALERTE-FENETRE', `${message} (${path.basename(source)}:${line})`);
   });
