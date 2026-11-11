@@ -3,6 +3,12 @@ const $ = id => document.getElementById(id);
 let config;
 let conv = null;     // conversation ouverte
 let streaming = null; // { content, thinking, el }
+let liveConvId = null;  // conversation dont la réponse est en cours
+let liveCard = null;    // carte de commande en cours dans cette conversation
+
+// Les éléments d'une réponse en cours ne s'affichent que si sa conversation est ouverte.
+let rendering = false;
+const place = el => { if (rendering || !liveConvId || (conv && conv.id === liveConvId)) $('messages').appendChild(el); };
 
 const machineId = () => $('machine').value;
 
@@ -147,7 +153,7 @@ function addMessage(role, content, thinking, attachments) {
   if (role === 'assistant' && content) renderMarkdown(body, content);
   else body.textContent = content;
   wrap.appendChild(body);
-  $('messages').appendChild(wrap);
+  place(wrap);
   return wrap;
 }
 
@@ -157,7 +163,7 @@ function addTool(command, output) {
   wrap.className = 'msg';
   wrap.innerHTML = '<div class="tool"><div class="cmd"></div></div>';
   wrap.querySelector('.cmd').textContent = command;
-  $('messages').appendChild(wrap);
+  place(wrap);
   if (output !== undefined) setToolOutput(wrap, output);
   return wrap;
 }
@@ -213,14 +219,24 @@ function renderMessages() {
     return;
   }
   const msgs = conv.messages;
+  const live = streaming && conv.id === liveConvId;
+  rendering = true;
   for (let i = 0; i < msgs.length; i++) {
     const m = msgs[i];
     if (m.role === 'tool') continue;
     if (m.content || m.thinking || m.attachments) addMessage(m.role, m.content, m.thinking, m.attachments);
     for (const [j, call] of (m.tool_calls || []).entries()) {
       const result = msgs[i + 1 + j];
-      addTool(describeCall(call), result && result.role === 'tool' ? result.content : '');
+      const done = result && result.role === 'tool';
+      if (!done && live) continue; // la carte en cours est réinsérée plus bas
+      addTool(describeCall(call), done ? result.content : '');
     }
+  }
+  rendering = false;
+  // Réponse en cours dans cette conversation : on remet la bulle et la carte vivantes.
+  if (live) {
+    if (!streaming.pushed) $('messages').appendChild(streaming.el);
+    if (liveCard) $('messages').appendChild(liveCard);
   }
   $('messages').scrollTop = $('messages').scrollHeight;
 }
@@ -357,7 +373,13 @@ async function send() {
     conv = { id: Date.now().toString(), title: (text || attachments[0].name).slice(0, 50), messages: [], updated: Date.now() };
     $('messages').innerHTML = '';
   }
-  conv.messages.push({ role: 'user', content: text, ...(attachments.length && { attachments }) });
+  // La conversation en cours de réponse : on peut en ouvrir une autre pendant ce temps.
+  const c = conv;
+  liveConvId = c.id;
+  c.messages.push({ role: 'user', content: text, ...(attachments.length && { attachments }) });
+  c.updated = Date.now();
+  await window.api.saveConv(c);
+  renderConvs();
   addMessage('user', text, '', attachments);
   setSending(true);
   stopRequested = false;
@@ -373,17 +395,19 @@ async function send() {
         agent,
         messages: [
           ...(agent ? [{ role: 'system', content: `${AGENT_PROMPT}\n\nCet ordinateur :\n${await getSysinfo()}` }] : []),
-          ...conv.messages.map(toModel)
+          ...c.messages.map(toModel)
         ]
       });
-      conv.messages.push({ role: 'assistant', content: streaming.content, thinking: streaming.thinkingFull || '', tool_calls: toolCalls });
+      c.messages.push({ role: 'assistant', content: streaming.content, thinking: streaming.thinkingFull || '', tool_calls: toolCalls });
+      streaming.pushed = true;
       if (!streaming.content && !streaming.thinkingFull) streaming.el.remove();
-      await window.api.saveConv(conv);
+      await window.api.saveConv(c);
       if (!toolCalls.length) break;
 
       for (const call of toolCalls) {
         if (stopRequested) break;
         const card = addTool(describeCall(call));
+        liveCard = card;
         let output, image;
         if ($('auto').checked || await askApproval(card)) {
           setToolOutput(card, 'Exécution…');
@@ -397,28 +421,31 @@ async function send() {
           output = "L'utilisateur a refusé cette action.";
           setToolOutput(card, output);
         }
-        conv.messages.push({
+        c.messages.push({
           role: 'tool', content: output,
           ...(image && { attachments: [{ name: 'capture.jpg', kind: 'image', data: image }] })
         });
+        liveCard = null;
       }
     }
   } catch (err) {
     if (stopRequested) {
       // Arrêt demandé : on garde ce qui a déjà été écrit.
       if (streaming.content || streaming.thinkingFull) {
-        conv.messages.push({ role: 'assistant', content: streaming.content + '\n\n[interrompu]', thinking: streaming.thinkingFull || '' });
+        c.messages.push({ role: 'assistant', content: streaming.content + '\n\n[interrompu]', thinking: streaming.thinkingFull || '' });
       }
     } else {
       streaming.el.className = 'msg assistant error';
       streaming.el.lastChild.textContent = cleanError(err);
     }
   } finally {
-    conv.updated = Date.now();
-    await window.api.saveConv(conv).catch(() => {});
+    c.updated = Date.now();
+    await window.api.saveConv(c).catch(() => {});
     streaming = null;
+    liveConvId = null;
+    liveCard = null;
     setSending(false);
-    if (stopRequested) renderMessages();
+    if (stopRequested && conv === c) renderMessages();
     renderConvs();
   }
 }
