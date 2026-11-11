@@ -298,7 +298,12 @@ ipcMain.handle('chat', async (e, { machineId, messages, agent }) => {
     signal: chatAbort.signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: m.model, messages, stream: true, ...(agent && { tools: AGENT_TOOLS }) })
+    body: JSON.stringify({
+      model: m.model, messages, stream: true, ...(agent && { tools: AGENT_TOOLS }),
+      // Réglages recommandés pour Qwen3 : évitent qu'un modèle compressé tourne en boucle,
+      // et num_predict borne la longueur d'une réponse.
+      options: { temperature: 0.6, top_p: 0.95, top_k: 20, presence_penalty: 1.5, repeat_penalty: 1.1, num_predict: 8192 }
+    })
   });
   if (!res.ok) throw new Error(`Ollama ${res.status} : ${await res.text()}`);
   const decoder = new TextDecoder();

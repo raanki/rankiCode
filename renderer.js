@@ -243,6 +243,17 @@ function renderMessages() {
 
 // ---- Envoi ----------------------------------------------------------------
 
+// Vrai si les 600 derniers caractères ne sont qu'un même motif court répété (« 00 00 00 … »).
+function isLooping(text) {
+  const tail = text.slice(-600);
+  if (tail.length < 600) return false;
+  for (let len = 1; len <= 40; len++) {
+    const unit = tail.slice(-len);
+    if (unit.trim() && tail.split(unit).join('').length < 30) return true;
+  }
+  return false;
+}
+
 // Bulle de réponse en cours : réflexion visible en direct, puis repliée quand la réponse arrive.
 function startStreaming() {
   const el = addMessage('assistant', '');
@@ -284,6 +295,13 @@ window.api.onChunk(({ content, thinking }) => {
     renderMarkdown(s.el.lastChild, s.content);
   }
   s.thinkingFull = allThinking;
+
+  // Filet de sécurité : si la fin du texte répète le même motif en boucle, on coupe.
+  if (!s.looped && isLooping(allThinking + s.content)) {
+    s.looped = true;
+    stop();
+    window.api.log('ALERTE', 'Réponse coupée : le modèle tournait en boucle');
+  }
   $('messages').scrollTop = $('messages').scrollHeight;
 });
 

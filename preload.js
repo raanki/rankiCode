@@ -6,6 +6,7 @@ window.addEventListener('unhandledrejection', e => ipcRenderer.send('log', 'ERRE
 
 contextBridge.exposeInMainWorld('api', {
   openLogs: () => ipcRenderer.invoke('logs:open'),
+  log: (level, text) => ipcRenderer.send('log', level, text),
   getConfig: () => ipcRenderer.invoke('config:get'),
   saveConfig: cfg => ipcRenderer.invoke('config:save', cfg),
   status: id => ipcRenderer.invoke('machine:status', id),
