@@ -601,3 +601,4 @@ document.querySelector('[data-view="termView"]').addEventListener('dblclick', ()
   refreshStatus();
   setInterval(refreshStatus, 10000);
 })();
+$('openLogs').onclick = () => window.api.openLogs();

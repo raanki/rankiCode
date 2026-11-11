@@ -1,6 +1,11 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+// Erreurs JavaScript de la fenêtre → journal.
+window.addEventListener('error', e => ipcRenderer.send('log', 'ERREUR-FENETRE', `${e.message} (${e.filename}:${e.lineno})`));
+window.addEventListener('unhandledrejection', e => ipcRenderer.send('log', 'ERREUR-FENETRE', String(e.reason && e.reason.stack || e.reason)));
+
 contextBridge.exposeInMainWorld('api', {
+  openLogs: () => ipcRenderer.invoke('logs:open'),
   getConfig: () => ipcRenderer.invoke('config:get'),
   saveConfig: cfg => ipcRenderer.invoke('config:save', cfg),
   status: id => ipcRenderer.invoke('machine:status', id),

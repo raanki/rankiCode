@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const XLSX = require('xlsx');
 const browserTools = require('./browser');
 const path = require('path');
@@ -54,6 +54,24 @@ const DEFAULT_CONFIG = {
     }
   ]
 };
+
+// Journal : %APPDATA%\rankicode\logs\rankicode.log (ouvrable depuis Réglages).
+const LOG = path.join(DATA, 'logs', 'rankicode.log');
+fs.mkdirSync(path.dirname(LOG), { recursive: true });
+try { if (fs.statSync(LOG).size > 5e6) fs.renameSync(LOG, LOG + '.old'); } catch {}
+function log(level, ...parts) {
+  const text = parts.map(p => p instanceof Error ? p.stack : typeof p === 'string' ? p : JSON.stringify(p)).join(' ');
+  fs.appendFileSync(LOG, `${new Date().toISOString()} [${level}] ${text}\n`);
+}
+process.on('uncaughtException', err => log('CRASH', err));
+process.on('unhandledRejection', err => log('ERREUR', err));
+
+// Toutes les fonctions appelées par la fenêtre passent par ici : leurs erreurs sont journalisées.
+const handle = ipcMain.handle.bind(ipcMain);
+ipcMain.handle = (channel, fn) => handle(channel, async (...args) => {
+  try { return await fn(...args); } catch (err) { log('ERREUR', `${channel} :`, err); throw err; }
+});
+ipcMain.on('log', (_, level, text) => log(level, text));
 
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
@@ -124,6 +142,7 @@ ipcMain.handle('machine:metrics', async (_, id) => {
   return result;
 });
 
+ipcMain.handle('logs:open', () => shell.openPath(LOG));
 ipcMain.handle('config:get', () => getConfig());
 ipcMain.handle('config:save', (_, cfg) => writeJson(CONFIG, cfg));
 ipcMain.handle('machine:status', (_, id) => machineStatus(id));
@@ -316,6 +335,14 @@ app.whenReady().then(() => {
   });
   win.removeMenu();
   win.loadFile('index.html');
+  log('INFO', `Démarrage, données dans ${DATA}`);
+  win.webContents.on('console-message', (_e, level, message, line, source) => {
+    if (level >= 2) log(level === 3 ? 'ERREUR-FENETRE' : 'ALERTE-FENETRE', `${message} (${path.basename(source)}:${line})`);
+  });
+  win.webContents.on('render-process-gone', (_e, details) => log('CRASH', 'Fenêtre plantée :', details));
+  win.webContents.on('before-input-event', (_e, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') win.webContents.toggleDevTools();
+  });
 });
 app.on('window-all-closed', () => app.quit());
 
