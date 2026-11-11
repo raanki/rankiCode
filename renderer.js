@@ -273,7 +273,11 @@ window.api.onChunk(({ content, thinking }) => {
 
   if (allThinking) {
     s.think.hidden = false;
-    s.think.querySelector('.think-text').textContent = allThinking;
+    const box = s.think.querySelector('.think-text');
+    // On suit le bas du texte, sauf si l'utilisateur est remonté pour relire.
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    box.textContent = allThinking;
+    if (atBottom) box.scrollTop = box.scrollHeight;
   }
   if (s.content) {
     if (s.think.open && allThinking) { s.think.open = false; s.think.querySelector('summary').textContent = 'Réflexion'; }
